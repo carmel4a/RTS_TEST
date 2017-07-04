@@ -1,0 +1,99 @@
+[gd_scene load_steps=4 format=1]
+
+[ext_resource path="res://icon.png" type="Texture" id=1]
+
+[sub_resource type="GDScript" id=2]
+
+script/source = "tool
+extends Polygon2D
+
+# map size in pxs
+export var map_size_x = 500
+export var map_size_y = 500
+# move map from left top corner
+export var init_pos_x = 150
+export var init_pos_y = 150
+
+func _ready():
+	# create polygon
+	set_pos(Vector2(init_pos_x,init_pos_y))
+	set_polygon(Vector2Array([
+	Vector2(0,0),
+	Vector2(map_size_x,0),
+	Vector2(map_size_x,map_size_y),
+	Vector2(0,map_size_y)]
+	))
+	# move Nav2D poly to true pos (with position of map node)
+	var _buff_poly = Vector2Array([])
+	for i in get_polygon():
+		_buff_poly.append(i+get_pos())
+	# set polygon to Nav2D
+	var _nav_poly = NavigationPolygon.new()
+	_nav_poly.add_outline(_buff_poly)
+	_nav_poly.make_polygons_from_outlines()
+	get_node(\"Navigation2D\").navpoly_create(_nav_poly,Matrix32(0,Vector2(1,1)))
+	get_node(\"Navigation2D\").navpoly_set_transform(1, Matrix32(0,Vector2(1,1)))
+"
+
+[sub_resource type="GDScript" id=1]
+
+script/source = "extends Sprite
+
+var movement_path = Curve2D.new()
+var speed = 250.0
+var pos_on_path = 0
+
+func _ready():
+	# that's in pixels (probably)
+	movement_path.set_bake_interval(1)
+	set_process_unhandled_input(true)
+	set_fixed_process(true)
+
+func _unhandled_input(event):
+	if event.type == InputEvent.MOUSE_BUTTON and event.pressed:
+		if event.button_index == BUTTON_RIGHT:
+			movement_path.clear_points()
+			movement_path.add_point(get_pos())
+			movement_path.add_point(event.global_pos)
+			var _buffer = get_node(\"../A passable map/Navigation2D\").get_simple_path(movement_path.get_point_pos(0),movement_path.get_point_pos(1))
+			movement_path.clear_points()
+			for i in _buffer:
+				movement_path.add_point(i)
+			pos_on_path = 0
+
+func _fixed_process(delta):
+	
+	if round(pos_on_path+speed*delta) < movement_path.get_baked_points().size():
+		pos_on_path += speed*delta
+		set_pos(movement_path.get_baked_points()[round(pos_on_path)])
+	"
+
+[node name="Game" type="Node"]
+
+[node name="A passable map" type="Polygon2D" parent="."]
+
+polygon = Vector2Array( 0, 0, 500, 0, 500, 500, 0, 500 )
+uv = Vector2Array(  )
+color = Color( 1, 1, 1, 1 )
+vertex_colors = ColorArray(  )
+offset = Vector2( 0, 0 )
+texture/texture = null
+texture/offset = Vector2( 0, 0 )
+texture/scale = Vector2( 1, 1 )
+texture/rotation = 0.0
+invert/enable = false
+invert/border = 100.0
+script/script = SubResource( 2 )
+map_size_x = 500
+map_size_y = 500
+init_pos_x = 150
+init_pos_y = 150
+
+[node name="Navigation2D" type="Navigation2D" parent="A passable map"]
+
+[node name="your unit" type="Sprite" parent="."]
+
+texture = ExtResource( 1 )
+script/script = SubResource( 1 )
+
+
